@@ -27,7 +27,7 @@ class User
     {
         $users = [];
         $instance = \Gateway\User::getInstance();
-        foreach ($names as $name) {
+        foreach ($names as $name) { //тут оптимальнее было бы одним запросом все выбирать
             $users[] = $instance->user($name);
         }
 
