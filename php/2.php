@@ -2,26 +2,35 @@
 
 namespace Gateway;
 
+use Data\DB;
 use PDO;
 
 class User
 {
     /**
-     * @var PDO
+     * @var DB
      */
-    public static $instance;
+    private $db;
+
+    /**
+     * @var self
+     */
+    private static $instance;
+
+    protected function __construct(DB $db)
+    {
+        $this->db = $db;
+    }
 
     /**
      * Реализация singleton
-     * @return PDO
+     * @return self
      */
-    public static function getInstance(): PDO
+    public static function getInstance(): self
     {
         if (is_null(self::$instance)) {
-            $dsn = 'mysql:dbname=db;host=127.0.0.1';
-            $user = 'dbuser';
-            $password = 'dbpass';
-            self::$instance = new PDO($dsn, $user, $password);
+            $db = DB::getInstance();
+            self::$instance = new self($db);
         }
 
         return self::$instance;
@@ -30,11 +39,13 @@ class User
     /**
      * Возвращает список пользователей старше заданного возраста.
      * @param int $ageFrom
+     * @param int $limit
      * @return array
      */
-    public static function getUsers(int $ageFrom): array
+    public function getUsers(int $ageFrom, int $limit): array
     {
-        $stmt = self::getInstance()->prepare("SELECT id, name, lastName, from, age, settings FROM Users WHERE age > {$ageFrom} LIMIT " . \Manager\User::limit);
+        $stmt = $this->db->getConnection()->prepare("SELECT `id`, `name`, `lastName`, `from`, `age`, `settings` FROM Users WHERE age > :ageFrom LIMIT :limit",
+            ['ageFrom' => $ageFrom, 'limit' => $limit]);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $users = [];
@@ -58,9 +69,9 @@ class User
      * @param string $name
      * @return array
      */
-    public static function user(string $name): array
+    public function user(string $name): array
     {
-        $stmt = self::getInstance()->prepare("SELECT id, name, lastName, from, age, settings FROM Users WHERE name = {$name}");
+        $stmt = $this->db->getConnection()->prepare("SELECT `id`, `name`, `lastName`, `from`, `age`, `settings` FROM Users WHERE name = :name", ['name' => $name]);
         $stmt->execute();
         $user_by_name = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -80,11 +91,12 @@ class User
      * @param int $age
      * @return string
      */
-    public static function add(string $name, string $lastName, int $age): string
+    public function add(string $name, string $lastName, int $age): string
     {
-        $sth = self::getInstance()->prepare("INSERT INTO Users (name, lastName, age) VALUES (:name, :age, :lastName)");
+        $connection = $this->db->getConnection();
+        $sth = $connection->prepare("INSERT INTO Users (`name`, `lastName`, `age`) VALUES (:name, :age, :lastName)");
         $sth->execute([':name' => $name, ':age' => $age, ':lastName' => $lastName]);
 
-        return self::getInstance()->lastInsertId();
+        return $connection->lastInsertId();
     }
 }
